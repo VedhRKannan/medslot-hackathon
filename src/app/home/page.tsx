@@ -10,8 +10,6 @@ import {
   setDoc,
   getDoc,
   deleteDoc,
-  query,
-  where,
 } from "firebase/firestore";
 import { Timestamp } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
