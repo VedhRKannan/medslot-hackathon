@@ -69,9 +69,9 @@ export default function Home() {
         }
         
         const fetchData = async () => {
-            const userId = auth.currentUser!.email!;
-
-            if (!hospitalId) throw new Error("Hospital ID is missing");
+            const userId = auth.currentUser!.email;
+            console.log(userId);
+            console.log(hospitalId);
             
             const apptSnapshot = await getDocs(collection(db, "appointments", userId?.toString(), hospitalId?.toString()));
             console.log(apptSnapshot);
@@ -100,7 +100,7 @@ export default function Home() {
             const pendingSwaps = userSwaps.filter((req) => req.pending);
             const validPendingSwaps = await Promise.all(
             pendingSwaps.map(async (req) => {
-                const apptSnap = await getDocs(collection(db, "appointments", req.user_id, hospitalId));
+                const apptSnap = await getDocs(collection(db, "appointments", req.user, hospitalId));
                 const appt = apptSnap.docs.find((doc) => doc.id === req.appt_id);
                 return appt && !isBefore(appt.data().date.toDate(), startOfDay(new Date())) ? req : null;
             })
@@ -294,12 +294,12 @@ export default function Home() {
                 {daysInMonthFiltered.map((day) => {
                     const hasAppt = appointmentForDate(day);
                     const hasAvailable = availableSlots.find((slot) => 
-                        startOfDay(slot.date.toDate()).toString() == startOfDay(day).toString()
+                        isEqual(startOfDay(slot.date.toDate()), startOfDay(day))
                     );
                     const isPast = isBefore(day, new Date());
                     return (
                         <Button
-                        key={day.toISOString()}
+                        key={day.toString()}
                         variant={hasAppt ? "default" : hasAvailable ? "secondary" : "outline"}
                         disabled={isPast}
                         className={`h-16 ${isPast ? "bg-gray-200 text-gray-500" : ""}`}
