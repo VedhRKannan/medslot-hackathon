@@ -74,7 +74,14 @@ export default function Home() {
             console.log(userId);
             console.log(hospitalId);
             
-            const apptSnapshot = await getDocs(collection(db, "appointments", userId?.toString(), hospitalId?.toString()));
+            if (!userId || !hospitalId) {
+                console.error("Error: userId or hospitalId is missing.");
+                return;
+            }
+            
+            const apptRef = collection(db, "appointments", userId, hospitalId);
+            const apptSnapshot = await getDocs(apptRef);
+            
             console.log(apptSnapshot);
             const apptData = apptSnapshot.docs.map((doc) => ({
                 id: doc.id,
@@ -101,7 +108,8 @@ export default function Home() {
             const pendingSwaps = userSwaps.filter((req) => req.pending);
             const validPendingSwaps = await Promise.all(
             pendingSwaps.map(async (req) => {
-                const apptSnap = await getDocs(collection(db, "appointments", req.user, hospitalId));
+                const apptRef = collection(db, "appointments", req.user_id, hospitalId, req.appt_id);
+                const apptSnap = await getDocs(apptRef);
                 const appt = apptSnap.docs.find((doc) => doc.id === req.appt_id);
                 return appt && !isBefore(appt.data().date.toDate(), startOfDay(new Date())) ? req : null;
             })
@@ -119,7 +127,7 @@ export default function Home() {
     });
 
     const handleDayClick = (date: Timestamp) => {
-        setSelectedDate(date);
+        setSelectedDate(date.toString());
         setDialogOpen(true);
     };
 
@@ -127,9 +135,10 @@ export default function Home() {
         appointments.find((appt) => appt.date.isEqual(date));
 
     const checkForSwapMatches = async (newRequest: SwapRequest) => {
-        const allRequests = await getDocs(
-            query(collection(db, "hospitals", hospitalId, "swapRequests"), where("clinic", "==", newRequest.clinic))
-        );
+        const swapRequestsRef = collection(db, "hospitals", hospitalId, "swapRequests");
+
+
+        const allRequests = await getDocs(swapRequestsRef);
         const potentialMatches: SwapRequest[] = [];
 
         console.log(allRequests.docs);
