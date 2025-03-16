@@ -8,6 +8,7 @@ import {
   getDocs,
   doc,
   setDoc,
+  getDoc,
   deleteDoc,
   query,
   where,
@@ -248,8 +249,22 @@ export default function Home() {
         console.log(appt_id);
         console.log(hospitalId);
         if (!hospitalId || !auth.currentUser) return;
-        await deleteDoc(doc(db, "appointments", auth.currentUser!.email, hospitalId, appt_id));
-        setAppointments(appointments.filter((appt) => appt.id !== appt_id));
+
+        const apptRef = doc(db, "appointments", auth.currentUser!.email, hospitalId, appt_id);
+
+        const apptSnapshot = await getDoc(apptRef);
+        if (!apptSnapshot.exists()) {
+            console.error("Appointment not found");
+            return;
+        }
+        const apptData = apptSnapshot.data() as Appointment;
+        await deleteDoc(apptRef);
+        const emptyRef = doc(db, "appointments", "empty", hospitalId, appt_id);
+        await setDoc(emptyRef, apptData);
+
+        // Step 4: Update local state
+        setAppointments((prev) => prev.filter((appt) => appt.id !== appt_id));
+        setAvailableSlots((prev) => [...prev, { id: appt_id, ...apptData }]);
         setDialogOpen(false);
     };
     
