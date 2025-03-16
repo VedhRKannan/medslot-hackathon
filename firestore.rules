@@ -1,9 +1,30 @@
 rules_version = '2';
 
 service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+    match /databases/{database}/documents {
+        match /appointments/{user_id} {
+            allow read: if request.auth != null && request.auth.token.email == user_id;
+            allow write, create: if false;
+        }
+        match /appointments/{user_id}/{hospital_id} {
+            allow read: if request.auth != null && request.auth.token.email == user_id;
+            allow write, create: if false;
+        }
+        match /appointments/{user_id}/{hospital_id}/{document=**} {
+            allow read, write: if request.auth != null && request.auth.token.email == user_id;
+        }
+        match /hospitals/{hospitalId} {
+            allow read: if request.auth != null;
+            allow write, create: if false;
+        }
+        match /hospitals/{hospitalId}/swapRequests {
+            allow read: if request.auth != null;
+            allow write, create: if false;
+        }
+        match /hospitals/{hospital_id}/swapRequests/{request_id} {
+            allow read: if request.auth != null && request.auth.token.email == resource.data.user_id;
+            allow create: if request.auth != null && request.resource.data.user_id == request.auth.token.email;
+            allow update: if request.auth != null && resource.data.user_id == request.auth.token.email;
+        }
     }
-  }
 }
