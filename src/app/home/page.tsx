@@ -51,7 +51,10 @@ export default function Home() {
     const hospitalId = searchParams.get("hospital");
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [availableSlots, setAvailableSlots] = useState<Appointment[]>([]);
     const [swapRequests, setSwapRequests] = useState<SwapRequest[]>([]);
+    const [confirmedSwaps, setConfirmedSwaps] = useState<SwapRequest[]>([]);
+    const [swapFormOpen, setSwapFormOpen] = useState(false);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -66,26 +69,42 @@ export default function Home() {
         }
 
         const fetchData = async () => {
-        const userId = auth.currentUser!.email;
-
-        const apptSnapshot = await getDocs(
-            collection(db, "appointments", userId, hospitalId)
-        );
-        
-        console.log(apptSnapshot.docs);
-        const apptData = apptSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-        })) as Appointment[];
-        setAppointments(apptData);
-
-        const swapSnapshot = await getDocs(
-            query(collection(db, "hospitals", hospitalId, "swapRequests"), where("user_id", "==", userId))
-        );
-        console.log(swapSnapshot.docs);
-        const swapData = swapSnapshot.docs
-            .map((doc) => ({ id: doc.id, ...doc.data() } as SwapRequest));
-        setSwapRequests(swapData);
+            const userId = auth.currentUser!.email;
+            
+            const apptSnapshot = await getDocs(collection(db, "appointments", userId, hospitalId));
+            console.log(apptSnapshot);
+            const apptData = apptSnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            })) as Appointment[];
+            setAppointments(apptData);
+            
+            console.log("EmptySnapshot");
+            const emptySnapshot = await getDocs(collection(db, "appointments", "empty", hospitalId));
+            console.log("EmptySnapshot End");
+            console.log(emptySnapshot);
+            const emptyData = emptySnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            })) as Appointment[];
+            setAvailableSlots(emptyData);
+            
+            console.log("SwapSnapshot");
+            const swapSnapshot = await getDocs(collection(db, "hospitals", hospitalId, "swapRequests"));
+            console.log(swapSnapshot);
+            console.log("SwapSnapshot End");
+            const swapData = swapSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as SwapRequest));
+            const userSwaps = swapData.filter((req) => req.user_id === auth.currentUser!.email);
+            const pendingSwaps = userSwaps.filter((req) => req.pending);
+            const validPendingSwaps = await Promise.all(
+            pendingSwaps.map(async (req) => {
+                const apptSnap = await getDocs(collection(db, "appointments", req.user, hospitalId));
+                const appt = apptSnap.docs.find((doc) => doc.id === req.appt_id);
+                return appt && !isBefore(appt.data().date.toDate(), startOfDay(new Date())) ? req : null;
+            })
+            );
+            setSwapRequests(validPendingSwaps.filter((req) => req !== null) as SwapRequest[]);
+            setConfirmedSwaps(userSwaps.filter((req) => !req.pending));
         };
 
         fetchData();
@@ -193,10 +212,9 @@ export default function Home() {
                     )
                 );
                 setSwapRequests((prev) =>
-                    prev.map((req) =>
-                    req.id === newRequest.id ? { ...req, pending: false } : req
-                    )
+                    prev.map((req) => (req.id === newRequest.id || req.id === match.id) ? { ...req, pending: false } : req)
                 );
+                setConfirmedSwaps((prev) => [...prev, { ...newRequest, pending: false }, { ...match, pending: false }]);
             }
         }
     };
@@ -231,6 +249,18 @@ export default function Home() {
         setDialogOpen(false);
     };
     
+    const matchAppointment = () => {
+        if (!selectedDate) return null;
+        const parsedDate = selectedDate.toString()
+        const normalizedDate = startOfDay(parsedDate);
+        return appointments.find((appt) => {
+            const normalizedApptDate = startOfDay(appt.date.toDate()).toString();
+            return isEqual(normalizedDate, normalizedApptDate);
+        });
+    };
+
+    const daysInMonthFiltered = daysInMonth.filter((day) => !isBefore(day, startOfDay(new Date())));
+
     return (
         <div className="p-8">
             <div className="flex items-center">
@@ -257,21 +287,25 @@ export default function Home() {
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                 <div key={day} className="text-center font-bold">{day}</div>
                 ))}
-                {daysInMonth.map((day) => {
-                const hasAppt = appointmentForDate(day);
-                const isPast = isBefore(day, new Date()) && format(day, "yyyy-MM") === format(new Date(), "yyyy-MM");
-                return (
-                    <Button
-                    key={day.toISOString()}
-                    variant={hasAppt ? "default" : "outline"}
-                    disabled={isPast}
-                    className={`h-16 ${isPast ? "bg-gray-200 text-gray-500" : ""}`}
-                    onClick={() => handleDayClick(day)}
-                    >
-                    {format(day, "d")}
-                    {hasAppt && <span className="text-xs"> (Appt)</span>}
-                    </Button>
-                );
+                {daysInMonthFiltered.map((day) => {
+                    const hasAppt = appointmentForDate(day);
+                    const hasAvailable = availableSlots.find((slot) => 
+                        isEqual(startOfDay(slot.date.toDate()), startOfDay(day))
+                    );
+                    const isPast = isBefore(day, new Date());
+                    return (
+                        <Button
+                        key={day.toISOString()}
+                        variant={hasAppt ? "default" : hasAvailable ? "secondary" : "outline"}
+                        disabled={isPast}
+                        className={`h-16 ${isPast ? "bg-gray-200 text-gray-500" : ""}`}
+                        onClick={() => handleDayClick(day)}
+                        >
+                        {format(day, "d")}
+                        {hasAppt && <span className="text-xs"> (Booked)</span>}
+                        {hasAvailable && !hasAppt && <span className="text-xs"> (Available)</span>}
+                        </Button>
+                    );
                 })}
             </div>
     
@@ -294,30 +328,52 @@ export default function Home() {
                 )}
                 </CardContent>
             </Card>
-    
+
+            <Card className="mt-8">
+                <CardHeader>
+                    <CardTitle>Confirmed Swaps</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {confirmedSwaps.length === 0 ? (
+                    <p>No confirmed swaps</p>
+                    ) : (
+                    <ul>
+                        {confirmedSwaps.map((swap) => (
+                        <li key={swap.id}>
+                            Swapped {format(appointments.find((appt) => appt.id === swap.apptId)?.date.toDate() || new Date(), "MMMM d, yyyy")}
+                        </li>
+                        ))}
+                    </ul>
+                    )}
+                </CardContent>
+            </Card>
+                    
             {selectedDate && (
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent>
+                    <DialogContent>
                     <DialogHeader>
-                    <DialogTitle>{format(new Date(selectedDate), "MMMM d, yyyy")}</DialogTitle>
+                        <DialogTitle>{format(new Date(selectedDate || ""), "MMMM d, yyyy")}</DialogTitle>
                     </DialogHeader>
                     {(() => {
-                        console.log(startOfDay(appointments[0].date.toDate()).toString());
-                        console.log("selected: %s", selectedDate.toString());
-                        const appt = appointments.find((a) => startOfDay(a.date.toDate()).toString() == selectedDate.toString());
+                        const appt = matchAppointment();
                         if (!appt) return <p>No appointment scheduled.</p>;
                         return (
-                            <div className="space-y-4">
+                        <div className="space-y-4">
                             <p>Location: {appt.location}</p>
                             <p>Clinic: {appt.clinic}</p>
                             <Button variant="destructive" onClick={() => handleCancel(appt.id)}>
-                                Cancel Appointment
+                            Cancel Appointment
                             </Button>
-                            <SwapForm appointmentId={appt.id} onSubmit={handleSwapRequest} />
-                            </div>
-                    );
+                            <Button onClick={() => setSwapFormOpen(true)}>
+                            Request Swap
+                            </Button>
+                            {swapFormOpen && (
+                            <SwapForm appointmentId={appt.id} onSubmit={handleSwapRequest} availableSlots={availableSlots} />
+                            )}
+                        </div>
+                        );
                     })()}
-                </DialogContent>
+                    </DialogContent>
                 </Dialog>
             )}
         </div>
