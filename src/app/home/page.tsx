@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isBefore, addMonths, subMonths, isWithinInterval, startOfDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isBefore, addMonths, subMonths, isWithinInterval, startOfDay, isEqual } from "date-fns";
 
 type Appointment = {
     id: string;
@@ -67,11 +67,13 @@ export default function Home() {
             router.push("/hospital");
             return;
         }
-
+        
         const fetchData = async () => {
             const userId = auth.currentUser!.email;
+            console.log(userId);
+            console.log(hospitalId);
             
-            const apptSnapshot = await getDocs(collection(db, "appointments", userId, hospitalId));
+            const apptSnapshot = await getDocs(collection(db, "appointments", userId?.toString(), hospitalId?.toString()));
             console.log(apptSnapshot);
             const apptData = apptSnapshot.docs.map((doc) => ({
                 id: doc.id,
@@ -243,8 +245,10 @@ export default function Home() {
     };
     
     const handleCancel = async (appt_id: string) => {
+        console.log(appt_id);
+        console.log(hospitalId);
         if (!hospitalId || !auth.currentUser) return;
-        await deleteDoc(doc(db, "appointments", auth.currentUser!.uid, hospitalId, appt_id));
+        await deleteDoc(doc(db, "appointments", auth.currentUser!.email, hospitalId, appt_id));
         setAppointments(appointments.filter((appt) => appt.id !== appt_id));
         setDialogOpen(false);
     };
