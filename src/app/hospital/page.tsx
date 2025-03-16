@@ -13,7 +13,7 @@ type Hospital = {
 };
 
 export default function HospitalSelection() {
-    const [hospitals, setHospitals] = useState<Set<string>>([]);
+    const [hospitals, setHospitals] = useState<Hospital[]>([]);
     const router = useRouter();
 
     useEffect(() => {
@@ -36,6 +36,9 @@ export default function HospitalSelection() {
             }));
 
             const hospitalData: Hospital[] = [];
+            if (user_email == null) {
+                return "Error";
+            }
             await Promise.all(
                 allHospitals.map(async (hospital) => {
                 console.log(hospital.id);

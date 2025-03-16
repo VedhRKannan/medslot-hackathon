@@ -18,8 +18,8 @@ export default function SignIn() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.push("/hospital"); // Redirect to hospital selection
-    } catch (err: unknown) {
-      setError(err.message);
+    } catch (err: any) {
+      setError(err);
     }
   };
 
