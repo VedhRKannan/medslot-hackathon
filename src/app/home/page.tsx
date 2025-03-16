@@ -133,7 +133,7 @@ export default function Home() {
         appointments.find((appt) => appt.date.isEqual(date));
 
     const checkForSwapMatches = async (newRequest: SwapRequest) => {
-        const swapRequestsRef = collection(db, "hospitals", hospitalId, "swapRequests");
+        const swapRequestsRef = collection(db, "hospitals", hospitalId?.toString(), "swapRequests");
 
 
         const allRequests = await getDocs(swapRequestsRef);
