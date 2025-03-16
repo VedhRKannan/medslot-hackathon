@@ -14,6 +14,7 @@
     "@tanstack/react-table": "^8.21.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date": "^2.0.6",
     "date-fns": "^4.1.0",
     "default-connector": "link:../.local/share/pnpm/global/5/node_modules/dataconnect-generated/js/default-connector",
     "firebase": "^11.4.0",

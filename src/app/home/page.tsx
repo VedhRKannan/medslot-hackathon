@@ -71,6 +71,7 @@ export default function Home() {
         const apptSnapshot = await getDocs(
             collection(db, "appointments", userId, hospitalId)
         );
+        
         console.log(apptSnapshot.docs);
         const apptData = apptSnapshot.docs.map((doc) => ({
             id: doc.id,
